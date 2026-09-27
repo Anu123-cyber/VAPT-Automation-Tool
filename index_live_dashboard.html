@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VAPT Automation Tool</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080d17;color:#e5e7eb;font:14px Arial,Helvetica,sans-serif}
+button,input{font:inherit}
+header{position:sticky;top:0;z-index:10;background:#0d1422;border-bottom:1px solid #263244;padding:16px 22px}
+.brand{font-size:22px;font-weight:700}.sub{color:#94a3b8;margin-top:4px}
+.toolbar{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+input{background:#111827;border:1px solid #334155;color:#fff;border-radius:8px;padding:11px 13px;min-width:340px}
+button{border:0;border-radius:8px;padding:11px 15px;cursor:pointer;font-weight:700}
+.primary{background:#2563eb;color:#fff}.secondary{background:#1e293b;color:#e2e8f0}
+button:disabled{opacity:.45;cursor:not-allowed}
+main{max-width:1600px;margin:auto;padding:20px}
+.progress-wrap{background:#111827;border:1px solid #263244;border-radius:12px;padding:16px;margin-bottom:18px}
+.progress{height:12px;background:#1e293b;border-radius:20px;overflow:hidden}
+.bar{height:100%;width:0;background:#3b82f6;transition:width .3s}
+.statusline{display:flex;justify-content:space-between;gap:15px;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.card{background:#111827;border:1px solid #263244;border-radius:12px;padding:15px}
+.card.clickable{cursor:pointer}.card.clickable:hover{border-color:#3b82f6}
+.num{font-size:27px;font-weight:700;margin-top:6px}.muted{color:#94a3b8}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+.tab{background:#111827;color:#cbd5e1;border:1px solid #263244}.tab.active{background:#1d4ed8;color:#fff}
+.panel{display:none}.panel.active{display:block}
+.module-grid{display:grid;grid-template-columns:repeat(3,minmax(250px,1fr));gap:12px}
+.module{background:#111827;border:1px solid #263244;border-radius:12px;padding:16px}
+.module h3{margin:0 0 8px}.module .count{font-size:24px;font-weight:700}
+.module button{margin-top:12px}
+table{width:100%;border-collapse:collapse;background:#0f172a;border-radius:8px;overflow:hidden}
+th,td{padding:9px 10px;border-bottom:1px solid #1e293b;text-align:left;vertical-align:top}
+th{background:#172033;color:#93c5fd;position:sticky;top:0}
+pre{white-space:pre-wrap;word-break:break-word}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:30;padding:30px}
+.modal.open{display:block}.modalbox{max-width:1300px;height:90vh;margin:auto;background:#0f172a;border:1px solid #334155;border-radius:14px;display:flex;flex-direction:column}
+.modalhead{padding:15px 18px;border-bottom:1px solid #263244;display:flex;justify-content:space-between}
+.modalbody{padding:16px;overflow:auto}
+.close{background:#334155;color:#fff}
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1e293b;margin:2px}
+.ok{color:#4ade80}.warn{color:#fbbf24}.bad{color:#f87171}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.module-grid{grid-template-columns:1fr}input{min-width:220px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">VAPT Automation Tool</div>
+  <div class="sub">Live Attack-Surface & Security Assessment Dashboard</div>
+  <div class="toolbar">
+    <input id="target" placeholder="https://example.com" autocomplete="off">
+    <button id="start" class="primary">START LIVE SCAN</button>
+    <button id="stopPoll" class="secondary" disabled>STOP REFRESH</button>
+    <span id="exports"></span>
+  </div>
+</header>
+
+<main>
+<section class="progress-wrap">
+  <div class="statusline">
+    <div><b id="phase">Ready</b><div class="muted" id="message">Enter an authorized target and start a scan.</div></div>
+    <b id="percent">0%</b>
+  </div>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <div class="muted" style="margin-top:8px">Scan ID: <span id="scanId">—</span></div>
+</section>
+
+<section class="grid" id="topCards"></section>
+
+<div class="tabs" id="tabs"></div>
+<div id="panels"></div>
+</main>
+
+<div class="modal" id="modal">
+ <div class="modalbox">
+  <div class="modalhead"><b id="modalTitle">Details</b><button class="close" onclick="closeModal()">CLOSE</button></div>
+  <div class="modalbody" id="modalBody"></div>
+ </div>
+</div>
+
+<script>
+let scanId=null, timer=null, latest=null;
+const categories=[
+ ["infrastructure","Infrastructure"],
+ ["services","Services"],
+ ["people","People"],
+ ["credentials","Credentials"],
+ ["code_docs","Code & Docs"],
+ ["threat_landscape","Threat Landscape"]
+];
+
+function esc(v){
+ return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function arr(v){return Array.isArray(v)?v:[]}
+function countValue(v){
+ if(Array.isArray(v)) return v.length;
+ if(v && typeof v==="object" && Number.isFinite(Number(v.count))) return Number(v.count);
+ return 0;
+}
+function statusText(v){
+ if(!v || typeof v!=="object") return "";
+ return v.status ? String(v.status) : "";
+}
+
+function setProgress(job){
+ const p=Number(job.progress||0);
+ document.getElementById("bar").style.width=Math.max(0,Math.min(100,p))+"%";
+ document.getElementById("percent").textContent=p.toFixed(p%1?1:0)+"%";
+ document.getElementById("phase").textContent=job.phase||"Running";
+ document.getElementById("message").textContent=job.message||"";
+ document.getElementById("scanId").textContent=job.scan_id||scanId||"—";
+}
+
+function topCards(job){
+ const result=job.result||job;
+ const crawl=result.crawl||job.crawl||{};
+ const stats=crawl.statistics||{};
+ const cards=[
+  ["Assets", countValue(result.subdomains)],
+  ["Open Ports", countValue((result.ports||{}).ports||(result.ports||{}).open_ports)],
+  ["Technologies", countValue(result.technologies)],
+  ["Internal URLs", Number(stats.internal_urls||0)],
+  ["API Endpoints", Number(stats.api_endpoints||0)],
+  ["Forms", Number(stats.forms||0)],
+  ["JS Files", Number(stats.javascript_files||0)],
+  ["Certificates", countValue(result.certificates)],
+  ["Findings", countValue(result.findings)],
+  ["Critical", (result.summary||{}).critical||0]
+ ];
+ document.getElementById("topCards").innerHTML=cards.map((c,i)=>
+  `<div class="card"><div class="muted">${esc(c[0])}</div><div class="num">${esc(c[1])}</div></div>`
+ ).join("");
+}
+
+function buildTabs(job){
+ const result=job.result||job;
+ const tabs=document.getElementById("tabs");
+ const panels=document.getElementById("panels");
+ tabs.innerHTML=categories.map((x,i)=>`<button class="tab ${i===0?'active':''}" onclick="showTab('${x[0]}',this)">${x[1]}</button>`).join("");
+ tabs.innerHTML += `<button class="tab" onclick="showTab('crawler',this)">Crawler</button><button class="tab" onclick="showTab('security',this)">Web Security</button>`;
+ panels.innerHTML=categories.map((x,i)=>`<section class="panel ${i===0?'active':''}" id="panel-${x[0]}"><div class="module-grid">${moduleCards(x[0],result[x[0]])}</div></section>`).join("");
+ panels.innerHTML += `<section class="panel" id="panel-crawler"><div class="module-grid">${crawlerCards(result.crawl||job.crawl)}</div></section>`;
+ panels.innerHTML += `<section class="panel" id="panel-security"><div class="module-grid">${securityCards(result)}</div></section>`;
+}
+
+function showTab(name,btn){
+ document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ const p=document.getElementById("panel-"+name); if(p)p.classList.add("active");
+ if(btn)btn.classList.add("active");
+}
+
+function moduleCards(group,data){
+ if(!data || typeof data!=="object") return `<div class="module"><h3>${esc(group)}</h3><div class="muted">No data collected yet.</div></div>`;
+ const entries=Object.entries(data);
+ if(!entries.length) return `<div class="module"><h3>${esc(group)}</h3><div class="muted">No data.</div></div>`;
+ return entries.map(([name,value])=>{
+   const n=countValue(value);
+   const st=statusText(value);
+   return `<div class="module"><h3>${esc(pretty(name))}</h3>
+     <div class="count">${n}</div><div class="muted">${esc(st||"items")}</div>
+     <button class="secondary" onclick='openValue(${JSON.stringify(group)},${JSON.stringify(name)},window.__lastJob)'>VIEW DETAILS</button>
+   </div>`;
+ }).join("");
+}
+function crawlerCards(crawl){
+ const c=crawl||{}, s=c.statistics||{};
+ const fields=[
+ ["pages","Pages"],["internal_urls","Internal URLs"],["external_urls","External URLs"],
+ ["parameters","Parameters"],["api_endpoints","API Endpoints"],["forms","Forms"],
+ ["javascript_files","JS Files"],["css_files","CSS Files"],["js_endpoints","JS Endpoints"]
+ ];
+ return fields.map(([k,label])=>`<div class="module"><h3>${label}</h3><div class="count">${Number(s[k]||arr(c[k]).length||0)}</div>
+ <button class="secondary" onclick='openCrawler("${k}")'>VIEW DETAILS</button></div>`).join("");
+}
+function securityCards(r){
+ const ws=r.web_security||{};
+ return `
+ <div class="module"><h3>Security Findings</h3><div class="count">${arr(r.findings).length}</div><button class="secondary" onclick='openRaw("Findings",${JSON.stringify(r.findings||[])})'>VIEW</button></div>
+ <div class="module"><h3>CORS</h3><div class="count">${(r.cors||{}).enabled?"Enabled":"Not detected"}</div><pre>${esc(JSON.stringify(r.cors||{},null,2))}</pre></div>
+ <div class="module"><h3>HTTP Methods</h3><div class="count">${arr((r.http_methods||{}).allowed_methods).length}</div><pre>${esc(JSON.stringify(r.http_methods||{},null,2))}</pre></div>
+ <div class="module"><h3>Headers</h3><div class="count">${Object.keys(ws.headers||{}).length}</div><button class="secondary" onclick='openRaw("Headers",${JSON.stringify(ws.headers||{})})'>VIEW</button></div>
+ <div class="module"><h3>Technologies</h3><div class="count">${countValue(r.technologies)}</div><button class="secondary" onclick='openRaw("Technologies",${JSON.stringify(r.technologies||{})})'>VIEW</button></div>`;
+}
+
+function pretty(s){return String(s).replace(/_/g," ").replace(/\b\w/g,x=>x.toUpperCase())}
+
+function openValue(group,name,job){
+ const value=((job||{}).result||job||{})[group]?.[name];
+ openRaw(`${pretty(group)} / ${pretty(name)}`,value);
+}
+function openRaw(title,value){
+ document.getElementById("modalTitle").textContent=title;
+ document.getElementById("modalBody").innerHTML=renderData(value);
+ document.getElementById("modal").classList.add("open");
+}
+function renderData(value){
+ if(value===null||value===undefined) return "<div class='muted'>No data collected.</div>";
+ if(typeof value!=="object") return `<pre>${esc(value)}</pre>`;
+ if(Array.isArray(value)){
+   if(!value.length)return "<div class='muted'>0 items</div>";
+   if(value.every(x=>x===null||typeof x!=="object")) return `<table><tbody>${value.map(x=>`<tr><td>${esc(x)}</td></tr>`).join("")}</tbody></table>`;
+   const keys=[...new Set(value.flatMap(x=>x&&typeof x==="object"?Object.keys(x):["value"]))].slice(0,20);
+   return `<table><thead><tr>${keys.map(k=>`<th>${esc(k)}</th>`).join("")}</tr></thead><tbody>${
+     value.map(row=>`<tr>${keys.map(k=>`<td>${esc(row&&typeof row==="object"?JSON.stringify(row[k]??""):(k==="value"?row:""))}</td>`).join("")}</tr>`).join("")
+   }</tbody></table>`;
+ }
+ const entries=Object.entries(value);
+ return `<table><tbody>${entries.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${typeof v==="object"?`<pre>${esc(JSON.stringify(v,null,2))}</pre>`:esc(v)}</td></tr>`).join("")}</tbody></table>`;
+}
+async function openCrawler(category){
+ if(!scanId)return;
+ try{
+   const r=await fetch(`/scan/${encodeURIComponent(scanId)}/crawler/${encodeURIComponent(category)}`);
+   const d=await r.json();
+   openRaw(`${pretty(category)} (${d.count||0})`,d.items||[]);
+ }catch(e){openRaw("Error",{error:String(e)})}
+}
+function closeModal(){document.getElementById("modal").classList.remove("open")}
+
+function exportButtons(){
+ if(!scanId)return;
+ document.getElementById("exports").innerHTML=[
+  ["json","JSON"],["csv","CSV"],["html","HTML"],["pdf","PDF"],["zip","ZIP"]
+ ].map(([x,t])=>`<button class="secondary" onclick="download('${x}')">${t}</button>`).join("");
+}
+function download(fmt){ if(scanId) window.location.href=`/scan/${encodeURIComponent(scanId)}/export/${fmt}`; }
+
+async function poll(){
+ if(!scanId)return;
+ try{
+  const r=await fetch(`/scan-status/${encodeURIComponent(scanId)}`,{cache:"no-store"});
+  const job=await r.json(); latest=job; window.__lastJob=job;
+  setProgress(job); topCards(job); buildTabs(job); exportButtons();
+  if(job.status==="completed"||job.status==="failed"){
+    clearInterval(timer); timer=null;
+    document.getElementById("stopPoll").disabled=true;
+  }
+ }catch(e){document.getElementById("message").textContent="Dashboard polling error: "+e}
+}
+
+document.getElementById("start").onclick=async()=>{
+ const target=document.getElementById("target").value.trim();
+ if(!target){alert("Enter a target.");return}
+ document.getElementById("start").disabled=true;
+ try{
+  const r=await fetch("/scan/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||"Unable to start scan");
+  scanId=d.scan_id; window.__lastJob=d;
+  document.getElementById("stopPoll").disabled=false;
+  setProgress(d); exportButtons();
+  if(timer)clearInterval(timer);
+  timer=setInterval(poll,1000);
+  await poll();
+ }catch(e){
+  alert(e.message);
+ }finally{
+  document.getElementById("start").disabled=false;
+ }
+};
+document.getElementById("stopPoll").onclick=()=>{
+ if(timer){clearInterval(timer);timer=null}
+ document.getElementById("stopPoll").disabled=true;
+};
+</script>
+</body>
+</html>
