@@ -605,6 +605,32 @@ pre {
     padding: 2px 0;
 }
 
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .logout-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 9px 16px;
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.06);
+        color: #ffffff;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        transition: 0.2s ease;
+    }
+
+    .logout-btn:hover {
+        background: rgba(255,255,255,0.12);
+        border-color: rgba(255,255,255,0.30);
+    }
+
 @media (max-width: 900px) {
     .control-grid {
         grid-template-columns: 1fr;
@@ -631,9 +657,13 @@ pre {
             <p>Live Security Assessment Platform</p>
         </div>
 
-        <div class="health">
-            <span id="healthDot" class="health-dot"></span>
-            <span id="healthText">Checking backend...</span>
+        <div class="header-actions">
+            <div class="health">
+                <span id="healthDot" class="health-dot"></span>
+                <span id="healthText">Checking backend...</span>
+            </div>
+
+            <a class="logout-btn" href="/logout">Sign Out</a>
         </div>
     </div>
 </header>
