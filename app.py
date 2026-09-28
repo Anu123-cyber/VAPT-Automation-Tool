@@ -1,4 +1,4 @@
-﻿from flask import Flask, render_template, request, jsonify, send_file
+﻿from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 import csv
 import html as html_lib
 import io
@@ -19,6 +19,8 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # ============================================================
 # OPTIONAL EXISTING PROJECT MODULES
@@ -67,6 +69,19 @@ except Exception:
 # ============================================================
 
 app = Flask(__name__)
+
+# Session signing key is supplied by the deployment environment.
+# Never hard-code production secrets in source control.
+app.secret_key = os.environ.get(
+    "VAPT_SECRET_KEY",
+    "development-only-change-me",
+)
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,
+)
 DB_PATH = os.path.join(os.path.dirname(__file__), "vapt.db")
 
 scan_jobs = {}
@@ -4110,6 +4125,116 @@ def build_dashboard_result(job):
 
         "error": job.get("error"),
     }
+
+
+
+# ============================================================
+# AUTHENTICATION
+# ============================================================
+
+AUTH_EXEMPT_ENDPOINTS = {
+    "login",
+    "health",
+    "static",
+}
+
+def get_auth_config():
+    username = os.environ.get("VAPT_ADMIN_USERNAME", "").strip()
+    password_hash = os.environ.get("VAPT_ADMIN_PASSWORD_HASH", "").strip()
+    secret_key = os.environ.get("VAPT_SECRET_KEY", "").strip()
+
+    return username, password_hash, secret_key
+
+
+@app.before_request
+def require_login():
+    endpoint = request.endpoint
+
+    if endpoint in AUTH_EXEMPT_ENDPOINTS:
+        return None
+
+    if endpoint is None:
+        return None
+
+    if session.get("authenticated") is True:
+        return None
+
+    if request.path.startswith("/login"):
+        return None
+
+    if request.path.startswith("/static/"):
+        return None
+
+    if request.path.startswith("/health"):
+        return None
+
+    if request.path.startswith("/scan/") or request.path == "/":
+        if request.path.startswith("/scan/") and request.method != "GET":
+            return jsonify({
+                "success": False,
+                "error": "Authentication required",
+            }), 401
+
+        return redirect(url_for("login", next=request.path))
+
+    return redirect(url_for("login", next=request.path))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    username, password_hash, secret_key = get_auth_config()
+
+    if not secret_key:
+        return """
+        <h2>Authentication is not configured</h2>
+        <p>The administrator must configure VAPT_SECRET_KEY in the server environment.</p>
+        """, 503
+
+    if request.method == "POST":
+        submitted_username = (
+            request.form.get("username", "").strip()
+        )
+        submitted_password = request.form.get(
+            "password", ""
+        )
+
+        valid = (
+            bool(username)
+            and bool(password_hash)
+            and submitted_username == username
+            and check_password_hash(
+                password_hash,
+                submitted_password,
+            )
+        )
+
+        if valid:
+            session.clear()
+            session["authenticated"] = True
+            session["username"] = username
+
+            next_url = request.args.get("next", "/")
+
+            if not next_url.startswith("/"):
+                next_url = "/"
+
+            return redirect(next_url)
+
+        return render_template(
+            "login.html",
+            error="Invalid username or password.",
+        ), 401
+
+    return render_template(
+        "login.html",
+        error=None,
+    )
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 # ============================================================
