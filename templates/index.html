@@ -356,6 +356,10 @@ button:disabled {
     color: var(--yellow);
 }
 
+.status-unavailable {
+    color: var(--yellow);
+}
+
 .feature-count {
     margin-top: 7px;
     color: var(--text);
@@ -2142,6 +2146,11 @@ function renderFeatureCard(
     ) {
         statusClass =
             "status-error";
+    } else if (
+        normalizedStatus === "unavailable"
+    ) {
+        statusClass =
+            "status-unavailable";
     }
 
     return `

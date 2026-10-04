@@ -671,7 +671,11 @@ def collect_certificate_transparency(target):
 
         data = http_json_get(
             url,
-            timeout=20,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36",
+                "Accept": "application/json,text/plain,*/*",
+            },
+            timeout=30,
         )
 
         if not isinstance(data, list):
@@ -737,7 +741,8 @@ def collect_certificate_transparency(target):
         result["count"] = len(certificates)
 
     except Exception as exc:
-        result["status"] = "error"
+        result["status"] = "unavailable"
+        result["source_status"] = "unavailable"
         result["error"] = str(exc)
         result["errors"].append(str(exc))
 
