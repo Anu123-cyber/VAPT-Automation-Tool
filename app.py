@@ -1114,6 +1114,7 @@ def http_assessment(target, scan_id=None):
         result["http_methods"] = {
             "status_code": opt.get("status_code"),
             "allow": allowed,
+            "allowed_methods": methods,
             "methods": methods,
             "tested": ["OPTIONS", "HEAD"],
             "responses": {
