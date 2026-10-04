@@ -262,7 +262,58 @@ def http_text_get(url, headers=None, timeout=10, method="GET", max_bytes=512000)
             "error": f"HTTP {exc.code}",
         }
 
+def check_http_methods(url, timeout=10):
+    """Detect HTTP methods advertised by the target using OPTIONS."""
+    result = {
+        "status_code": None,
+        "allowed_methods": [],
+        "allow_header": None,
+        "error": None,
+    }
 
+    headers = {
+        "User-Agent": "VAPT-Automation-Tool/1.0"
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers=headers,
+            method="OPTIONS",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                status = response.status
+                response_headers = dict(response.headers or {})
+
+        except urllib.error.HTTPError as exc:
+            # OPTIONS commonly returns 405, but the response may still
+            # contain the Allow header we need.
+            status = exc.code
+            response_headers = dict(exc.headers or {})
+
+        allow = response_headers.get("Allow")
+
+        if allow:
+            methods = [
+                method.strip().upper()
+                for method in allow.split(",")
+                if method.strip()
+            ]
+        else:
+            methods = []
+
+        result.update({
+            "status_code": status,
+            "allowed_methods": methods,
+            "allow_header": allow,
+        })
+
+    except Exception as exc:
+        result["error"] = str(exc)
+
+    return result
 # ============================================================
 # JOB HELPERS
 # ============================================================
