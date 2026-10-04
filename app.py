@@ -651,11 +651,108 @@ def collect_certificate_transparency(target):
         "target": host,
         "status": "completed",
         "source": "crt.sh Certificate Transparency",
+        "source_status": "primary",
+        "primary_source": "crt.sh Certificate Transparency",
+        "fallback_used": False,
         "certificates": [],
         "subdomains": [],
         "count": 0,
         "errors": [],
     }
+
+    def normalize_certspotter(data):
+        certificates = []
+        discovered_names = set()
+        seen_certs = set()
+
+        if not isinstance(data, list):
+            raise ValueError("Cert Spotter returned an unexpected response format")
+
+        for cert in data:
+            if not isinstance(cert, dict):
+                continue
+
+            names = []
+
+            raw_names = cert.get("dns_names", [])
+
+            if isinstance(raw_names, str):
+                raw_names = [raw_names]
+
+            if not isinstance(raw_names, list):
+                raw_names = []
+
+            for name in raw_names:
+                name = str(name).strip().lower()
+
+                if not name:
+                    continue
+
+                if name.startswith("*."):
+                    name = name[2:]
+
+                if (
+                    name == host
+                    or name.endswith("." + host)
+                ):
+                    discovered_names.add(name)
+                    names.append(name)
+
+            names = unique_list(names)
+
+            if not names:
+                continue
+
+            issuer = cert.get("issuer")
+
+            if isinstance(issuer, dict):
+                issuer_name = (
+                    issuer.get("friendly_name")
+                    or issuer.get("name")
+                    or issuer.get("organization")
+                )
+            else:
+                issuer_name = issuer
+
+            cert_key = (
+                cert.get("id"),
+                cert.get("cert_sha256"),
+                cert.get("serial_number"),
+                cert.get("not_before"),
+                cert.get("not_after"),
+                tuple(names),
+            )
+
+            if cert_key in seen_certs:
+                continue
+
+            seen_certs.add(cert_key)
+
+            certificates.append({
+                "id": cert.get("id"),
+                "common_name": (
+                    names[0]
+                    if names
+                    else None
+                ),
+                "issuer_name": issuer_name,
+                "name_value": names,
+                "dns_names": names,
+                "not_before": cert.get("not_before"),
+                "not_after": cert.get("not_after"),
+                "serial_number": cert.get("serial_number"),
+                "cert_sha256": cert.get("cert_sha256"),
+                "revoked": cert.get("revoked"),
+            })
+
+        return (
+            certificates,
+            sorted(discovered_names),
+        )
+
+    # --------------------------------------------------------
+    # PRIMARY SOURCE: crt.sh
+    # --------------------------------------------------------
 
     try:
         query = urllib.parse.quote(
@@ -672,14 +769,21 @@ def collect_certificate_transparency(target):
         data = http_json_get(
             url,
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36",
+                "User-Agent": (
+                    "Mozilla/5.0 "
+                    "(Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 "
+                    "Chrome/154 Safari/537.36"
+                ),
                 "Accept": "application/json,text/plain,*/*",
             },
             timeout=30,
         )
 
         if not isinstance(data, list):
-            data = []
+            raise ValueError(
+                "crt.sh returned an unexpected response format"
+            )
 
         certificates = []
         discovered_names = set()
@@ -711,12 +815,14 @@ def collect_certificate_transparency(target):
                     discovered_names.add(name)
                     names.append(name)
 
+            names = unique_list(names)
+
             cert_key = (
                 cert.get("serial_number"),
                 cert.get("common_name"),
                 cert.get("not_before"),
                 cert.get("not_after"),
-                tuple(unique_list(names)),
+                tuple(names),
             )
 
             if cert_key in seen_certs:
@@ -728,25 +834,82 @@ def collect_certificate_transparency(target):
                 "id": cert.get("id"),
                 "common_name": cert.get("common_name"),
                 "issuer_name": cert.get("issuer_name"),
-                "name_value": unique_list(names),
+                "name_value": names,
                 "not_before": cert.get("not_before"),
                 "not_after": cert.get("not_after"),
                 "serial_number": cert.get("serial_number"),
             })
 
+        # A valid empty response means the source itself worked.
         result["certificates"] = certificates
-        result["subdomains"] = sorted(
-            discovered_names
-        )
+        result["subdomains"] = sorted(discovered_names)
         result["count"] = len(certificates)
 
-    except Exception as exc:
-        result["status"] = "unavailable"
-        result["source_status"] = "unavailable"
-        result["error"] = str(exc)
-        result["errors"].append(str(exc))
+        return result
 
-    return result
+    except Exception as primary_exc:
+        primary_error = str(primary_exc)
+
+        result["errors"].append(
+            "crt.sh: " + primary_error
+        )
+
+    # --------------------------------------------------------
+    # FALLBACK SOURCE: Cert Spotter / SSLMate
+    # --------------------------------------------------------
+
+    try:
+        fallback_url = (
+            "https://api.certspotter.com/v1/issuances"
+            "?domain=" + urllib.parse.quote(host, safe="")
+            + "&include_subdomains=true"
+            + "&match_wildcards=true"
+            + "&expand=dns_names"
+        )
+
+        fallback_data = http_json_get(
+            fallback_url,
+            headers={
+                "User-Agent": "VAPT-Automation-Tool/1.0",
+                "Accept": "application/json",
+            },
+            timeout=20,
+        )
+
+        certificates, discovered_names = normalize_certspotter(
+            fallback_data
+        )
+
+        result["status"] = "completed"
+        result["source"] = (
+            "Cert Spotter Certificate Transparency"
+        )
+        result["source_status"] = "fallback"
+        result["fallback_used"] = True
+        result["certificates"] = certificates
+        result["subdomains"] = discovered_names
+        result["count"] = len(certificates)
+
+        return result
+
+    except Exception as fallback_exc:
+        fallback_error = str(fallback_exc)
+
+        result["status"] = "unavailable"
+        result["source"] = (
+            "Certificate Transparency sources"
+        )
+        result["source_status"] = "unavailable"
+        result["fallback_used"] = True
+        result["error"] = (
+            "Both Certificate Transparency sources "
+            "were unavailable."
+        )
+        result["errors"].append(
+            "Cert Spotter: " + fallback_error
+        )
+
+        return result
 
 
 # ============================================================
