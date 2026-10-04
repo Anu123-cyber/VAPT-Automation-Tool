@@ -1680,14 +1680,26 @@ def nmap_tcp_scan(host, scan_id, profile):
         "raw": "",
         "errors": [],
         "progress": 0,
+        "scan_method": "default",
+        "nmap_path": "",
     }
 
     nmap_path = find_nmap_executable()
+
     if not nmap_path:
         result["status"] = "not_available"
-        result["errors"].append("Nmap executable not found in PATH or standard Windows installation paths")
+        result["errors"].append(
+            "Nmap executable not found in PATH or standard installation paths"
+        )
+        update_job(
+            scan_id,
+            nmap=json_safe(result),
+            port_technology_fingerprint=json_safe(result),
+        )
         update_module(scan_id, "nmap", "completed", 100)
         return result
+
+    result["nmap_path"] = nmap_path
 
     if profile == "full":
         port_args = ["-p", "1-65535"]
@@ -1696,108 +1708,230 @@ def nmap_tcp_scan(host, scan_id, profile):
     else:
         port_args = ["--top-ports", "1000"]
 
-    # Normal output is streamed for live dashboard updates; XML is written to a
-    # temporary file and becomes the authoritative source for service/version fields.
     import tempfile
-    fd, xml_path = tempfile.mkstemp(prefix="vapt_nmap_", suffix=".xml")
-    os.close(fd)
 
-    command = [
-        nmap_path,
-        "-Pn",
-        "-sV",
-        "--reason",
-        "--open",
-        "-T4",
-        "--stats-every", "2s",
-        *port_args,
-        "-oN", "-",
-        "-oX", xml_path,
-        host,
-    ]
+    def run_nmap(scan_args, method_name):
+        fd, xml_path = tempfile.mkstemp(
+            prefix="vapt_nmap_",
+            suffix=".xml",
+        )
+        os.close(fd)
 
-    try:
-        proc = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
+        command = [
+            nmap_path,
+            "-Pn",
+            "-4",
+            "-sV",
+            "--reason",
+            "--open",
+            "-T4",
+            "--stats-every",
+            "2s",
+            *scan_args,
+            "-oN",
+            "-",
+            "-oX",
+            xml_path,
+            host,
+        ]
+
+        lines = []
+
+        try:
+            proc = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+
+            for line in iter(proc.stdout.readline, ""):
+                if not line:
+                    break
+
+                line = line.rstrip("\r\n")
+                lines.append(line)
+
+                pct = re.search(
+                    r"About\s+(\d+(?:\.\d+)?)%\s+done",
+                    line,
+                    re.I,
+                )
+
+                if pct:
+                    try:
+                        p = float(pct.group(1))
+                        mapped = int(5 + min(90.0, p * 0.90))
+                        set_module_progress(
+                            scan_id,
+                            "nmap",
+                            mapped,
+                            f"Nmap scanning {p:.1f}%",
+                            "running",
+                        )
+                    except Exception:
+                        pass
+
+                parsed = parse_nmap_text_line(line)
+
+                if parsed and parsed.get("state") == "open":
+                    if not any(
+                        x.get("port") == parsed.get("port")
+                        and x.get("protocol") == parsed.get("protocol")
+                        for x in result["open_ports"]
+                    ):
+                        result["open_ports"].append(parsed)
+                        result["open_port_count"] = len(result["open_ports"])
+
+                        update_job(
+                            scan_id,
+                            nmap=json_safe(result),
+                            port_technology_fingerprint=json_safe(result),
+                        )
+
+            proc.wait(timeout=900)
+
+            raw = "\n".join(lines)
+            xml_ports = []
+
+            try:
+                xml_text = Path(xml_path).read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                xml_ports = parse_nmap_xml(xml_text)
+            except Exception as exc:
+                return {
+                    "method": method_name,
+                    "command": command,
+                    "return_code": proc.returncode,
+                    "raw": raw,
+                    "xml_ports": [],
+                    "error": f"Nmap XML parse error: {exc}",
+                }
+
+            return {
+                "method": method_name,
+                "command": command,
+                "return_code": proc.returncode,
+                "raw": raw,
+                "xml_ports": xml_ports,
+                "error": "",
+            }
+
+        except subprocess.TimeoutExpired:
+            try:
+                proc.kill()
+                proc.wait(timeout=10)
+            except Exception:
+                pass
+
+            return {
+                "method": method_name,
+                "command": command,
+                "return_code": -1,
+                "raw": "\n".join(lines),
+                "xml_ports": [],
+                "error": "Nmap scan timed out after 900 seconds",
+            }
+
+        except Exception as exc:
+            return {
+                "method": method_name,
+                "command": command,
+                "return_code": -1,
+                "raw": "\n".join(lines),
+                "xml_ports": [],
+                "error": str(exc),
+            }
+
+        finally:
+            try:
+                os.remove(xml_path)
+            except Exception:
+                pass
+
+    def apply_scan_result(scan_result):
+        xml_ports = scan_result.get("xml_ports", []) or []
+
+        if xml_ports:
+            result["open_ports"] = xml_ports
+
+        result["open_port_count"] = len(result["open_ports"])
+        result["raw"] = scan_result.get("raw", result["raw"])
+
+    # First attempt: normal Nmap service/version scan.
+    first = run_nmap(port_args, "default")
+    apply_scan_result(first)
+
+    if first.get("return_code") == 0:
+        result["status"] = "completed"
+        result["scan_method"] = "default"
+
+    else:
+        first_error = first.get("error") or ""
+        result["errors"].append("Default Nmap scan failed")
+        result["errors"].append(
+            f"Nmap exited with code {first.get('return_code')}"
         )
 
-        live_lines = []
-        for line in iter(proc.stdout.readline, ""):
-            if not line:
-                break
-            line = line.rstrip("\r\n")
-            live_lines.append(line)
+        if first_error:
+            result["errors"].append(first_error)
 
-            pct = re.search(r"About\s+(\d+(?:\.\d+)?)%\s+done", line, re.I)
-            if pct:
-                try:
-                    p = float(pct.group(1))
-                    # Nmap module occupies 5..95 during execution.
-                    mapped = int(5 + min(90.0, p * 0.90))
-                    result["progress"] = mapped
-                    set_module_progress(scan_id, "nmap", mapped, f"Nmap scanning {p:.1f}%", "running")
-                except Exception:
-                    pass
+        # Render/Linux-compatible fallback using TCP connect scanning.
+        fallback = run_nmap(
+            port_args + ["-sT"],
+            "tcp_connect",
+        )
+        apply_scan_result(fallback)
 
-            parsed = parse_nmap_text_line(line)
-            if parsed and parsed["state"] == "open":
-                # Show newly observed ports immediately.
-                if not any(x.get("port") == parsed["port"] and x.get("protocol") == parsed["protocol"] for x in result["open_ports"]):
-                    result["open_ports"].append(parsed)
-                    result["open_port_count"] = len(result["open_ports"])
-                    update_job(scan_id, nmap=json_safe(result), port_technology_fingerprint=json_safe(result))
+        if fallback.get("return_code") == 0:
+            result["status"] = "completed"
+            result["scan_method"] = "tcp_connect"
+            result["errors"].append(
+                "Default Nmap scan failed; TCP Connect scan succeeded"
+            )
+        else:
+            result["status"] = "error"
+            result["errors"].append(
+                "TCP Connect fallback also failed"
+            )
+            result["errors"].append(
+                f"TCP Connect Nmap exited with code {fallback.get('return_code')}"
+            )
 
-        proc.wait(timeout=900)
-        raw = "\n".join(live_lines)
-        result["raw"] = raw
+            if fallback.get("error"):
+                result["errors"].append(
+                    fallback.get("error")
+                )
 
-        try:
-            xml_text = Path(xml_path).read_text(encoding="utf-8", errors="replace")
-            xml_ports = parse_nmap_xml(xml_text)
-            if xml_ports:
-                result["open_ports"] = xml_ports
-                result["open_port_count"] = len(xml_ports)
-        except Exception as exc:
-            result["errors"].append(f"Nmap XML parse error: {exc}")
+            result["raw"] = (
+                result["raw"]
+                + "\n\n===== TCP CONNECT FALLBACK =====\n\n"
+                + fallback.get("raw", "")
+            )
 
-        result["status"] = "completed" if proc.returncode == 0 else "error"
-        if proc.returncode != 0:
-            result["errors"].append(f"Nmap exited with code {proc.returncode}")
-
-    except subprocess.TimeoutExpired:
-        try:
-            proc.kill()
-        except Exception:
-            pass
-        result["status"] = "timeout"
-        result["errors"].append("Nmap scan timed out after 900 seconds")
-    except Exception as exc:
-        result["status"] = "error"
-        result["errors"].append(str(exc))
-    finally:
-        try:
-            os.remove(xml_path)
-        except Exception:
-            pass
-
-    result["open_ports"] = sorted(result["open_ports"], key=lambda x: (x.get("port", 0), x.get("protocol", "")))
+    result["open_ports"] = sorted(
+        result["open_ports"],
+        key=lambda x: (
+            x.get("port", 0),
+            x.get("protocol", ""),
+        ),
+    )
     result["open_port_count"] = len(result["open_ports"])
     result["progress"] = 100
 
-    update_job(scan_id, nmap=json_safe(result), port_technology_fingerprint=json_safe(result))
+    update_job(
+        scan_id,
+        nmap=json_safe(result),
+        port_technology_fingerprint=json_safe(result),
+    )
     update_module(scan_id, "nmap", "completed", 100)
+
     return result
-
-
-# ============================================================
-# SAFE PUBLIC-OSINT / ASSET MODULES
-# ============================================================
 
 def not_configured_feature(
     feature,
@@ -5309,5 +5443,4 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False,
     )
-
 
