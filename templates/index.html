@@ -3637,12 +3637,143 @@ async function showFeatureDetail(
             );
         }
 
+        const featureData =
+            data.data
+            ?? data;
+
+        if (
+            group === "infrastructure"
+            && name === "certificate_transparency"
+            && featureData
+            && typeof featureData === "object"
+        ) {
+            const status =
+                String(
+                    featureData.status || "unknown"
+                ).toUpperCase();
+
+            const sourceStatus =
+                String(
+                    featureData.source_status
+                    || featureData.status
+                    || "unknown"
+                ).toUpperCase();
+
+            const certificates =
+                Array.isArray(
+                    featureData.certificates
+                )
+                    ? featureData.certificates
+                    : [];
+
+            const subdomains =
+                Array.isArray(
+                    featureData.subdomains
+                )
+                    ? featureData.subdomains
+                    : [];
+
+            const errors =
+                Array.isArray(featureData.errors)
+                    ? featureData.errors
+                    : (
+                        featureData.error
+                            ? [featureData.error]
+                            : []
+                    );
+
+            showModal(
+                "Certificate Transparency",
+                `
+                    <div class="detail-grid">
+                        <div>
+                            <b>Status</b>
+                            <span>${escapeHtml(status)}</span>
+                        </div>
+
+                        <div>
+                            <b>Source status</b>
+                            <span>${escapeHtml(sourceStatus)}</span>
+                        </div>
+
+                        <div>
+                            <b>Source</b>
+                            <span>${escapeHtml(
+                                featureData.source || "-"
+                            )}</span>
+                        </div>
+
+                        <div>
+                            <b>Target</b>
+                            <span>${escapeHtml(
+                                featureData.target || "-"
+                            )}</span>
+                        </div>
+
+                        <div>
+                            <b>Certificates collected</b>
+                            <span>${escapeHtml(
+                                String(
+                                    featureData.count
+                                    ?? certificates.length
+                                )
+                            )}</span>
+                        </div>
+
+                        <div>
+                            <b>Subdomains discovered</b>
+                            <span>${escapeHtml(
+                                String(subdomains.length)
+                            )}</span>
+                        </div>
+                    </div>
+
+                    ${
+                        errors.length
+                            ? `
+                                <div class="detail-error">
+                                    <b>Reason</b>
+                                    <div>
+                                        ${escapeHtml(
+                                            errors.join("; ")
+                                        )}
+                                    </div>
+                                </div>
+                            `
+                            : ""
+                    }
+
+                    <div class="detail-note">
+                        No certificate data is fabricated.
+                        Results are shown only when the
+                        Certificate Transparency source
+                        returns data.
+                    </div>
+
+                    ${
+                        certificates.length
+                            ? `
+                                <pre>${escapeHtml(
+                                    JSON.stringify(
+                                        certificates,
+                                        null,
+                                        2
+                                    )
+                                )}</pre>
+                            `
+                            : ""
+                    }
+                `
+            );
+
+            return;
+        }
+
         showModal(
             prettyName(name),
             `<pre>${escapeHtml(
                 JSON.stringify(
-                    data.data
-                    ?? data,
+                    featureData,
                     null,
                     2
                 )
