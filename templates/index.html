@@ -825,6 +825,10 @@ pre {
                     HTML Report
                 </button>
 
+                <button id="downloadPdf" class="btn-secondary" disabled>
+                    PDF Report
+                </button>
+
                 <button id="downloadZip" class="btn-secondary" disabled>
                     ZIP Report
                 </button>
@@ -5009,6 +5013,7 @@ function enableDownloads() {
         "downloadJson",
         "downloadCsv",
         "downloadHtml",
+        "downloadPdf",
         "downloadZip"
     ].forEach(
         function (id) {
@@ -5024,6 +5029,16 @@ function enableDownloads() {
         }
     );
 }
+
+
+document
+    .getElementById("downloadPdf")
+    .addEventListener(
+        "click",
+        function () {
+            downloadResult("pdf");
+        }
+    );
 
 
 function downloadResult(
