@@ -1091,8 +1091,9 @@ def http_assessment(target, scan_id=None):
         }
 
         # --------------------------------------------------------
-        # HTTP methods: follow redirects and read methods actually
-        # advertised by the target. Do not invent unsupported methods.
+        # HTTP methods: safely determine methods actually observed
+        # from GET, HEAD and OPTIONS. Never send state-changing
+        # methods such as POST, PUT, PATCH or DELETE.
         # --------------------------------------------------------
         opt = _safe_http_probe(
             target,
@@ -1102,20 +1103,33 @@ def http_assessment(target, scan_id=None):
         )
 
         oh = _header_map(opt.get("headers", {}))
-        allowed = _csv_header_values(oh.get("allow"))
+
+        allowed = _csv_header_values(
+            oh.get("allow")
+        )
+
         ac_methods = _csv_header_values(
             oh.get("access-control-allow-methods")
         )
-        methods = unique_list(allowed + ac_methods)
 
-        # If OPTIONS returned a redirect, explicitly inspect Location.
-        location = oh.get("location")
+        methods = unique_list(
+            allowed + ac_methods
+        )
+
+        # Follow an explicit redirect returned by OPTIONS.
         final_url = opt.get("url") or target
+        location = oh.get("location")
 
-        if opt.get("status_code") in (301, 302, 303, 307, 308) and location:
-            redirected_url = urllib.parse.urljoin(target, location)
+        if (
+            opt.get("status_code") in (301, 302, 303, 307, 308)
+            and location
+        ):
+            redirected_url = urllib.parse.urljoin(
+                target,
+                location
+            )
 
-            final_opt = _safe_http_probe(
+            redirected_opt = _safe_http_probe(
                 redirected_url,
                 "OPTIONS",
                 {
@@ -1125,50 +1139,114 @@ def http_assessment(target, scan_id=None):
                 10,
             )
 
-            final_headers = _header_map(
-                final_opt.get("headers", {})
+            redirected_headers = _header_map(
+                redirected_opt.get("headers", {})
             )
 
-            final_allowed = _csv_header_values(
-                final_headers.get("allow")
+            redirected_allowed = _csv_header_values(
+                redirected_headers.get("allow")
             )
 
-            final_ac_methods = _csv_header_values(
-                final_headers.get("access-control-allow-methods")
+            redirected_ac_methods = _csv_header_values(
+                redirected_headers.get(
+                    "access-control-allow-methods"
+                )
             )
 
             methods = unique_list(
-                final_allowed + final_ac_methods
+                methods
+                + redirected_allowed
+                + redirected_ac_methods
             )
 
-            opt = final_opt
-            oh = final_headers
-            allowed = final_allowed
+            opt = redirected_opt
+            oh = redirected_headers
+            allowed = redirected_allowed
             final_url = redirected_url
 
-        head = _safe_http_probe(
+        # Safely test GET.
+        get_probe = _safe_http_probe(
+            final_url,
+            "GET",
+            {"User-Agent": "VAPT-Automation-Tool/1.0"},
+            10,
+        )
+
+        # Safely test HEAD.
+        head_probe = _safe_http_probe(
             final_url,
             "HEAD",
             {"User-Agent": "VAPT-Automation-Tool/1.0"},
             10,
         )
 
+        # GET is considered supported when the server returns a
+        # normal HTTP response rather than rejecting the method.
+        if get_probe.get("status_code") not in (
+            None,
+            400,
+            405,
+            501,
+        ):
+            methods = unique_list(
+                methods + ["GET"]
+            )
+
+        # HEAD is considered supported when the server returns
+        # a normal HTTP response rather than rejecting it.
+        if head_probe.get("status_code") not in (
+            None,
+            400,
+            405,
+            501,
+        ):
+            methods = unique_list(
+                methods + ["HEAD"]
+            )
+
+        # OPTIONS is supported only when the actual OPTIONS
+        # endpoint responds successfully.
+        if opt.get("status_code") not in (
+            None,
+            400,
+            405,
+            501,
+        ):
+            methods = unique_list(
+                methods + ["OPTIONS"]
+            )
+
         result["http_methods"] = {
             "status_code": opt.get("status_code"),
             "allow": allowed,
             "allowed_methods": methods,
             "methods": methods,
-            "tested": ["OPTIONS", "HEAD"],
+            "tested": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+            ],
             "final_url": final_url,
             "responses": {
-                "OPTIONS": {
-                    "status_code": opt.get("status_code"),
-                    "allow": oh.get("allow"),
-                    "access_control_allow_methods":
-                        oh.get("access-control-allow-methods"),
+                "GET": {
+                    "status_code": get_probe.get(
+                        "status_code"
+                    ),
                 },
                 "HEAD": {
-                    "status_code": head.get("status_code")
+                    "status_code": head_probe.get(
+                        "status_code"
+                    ),
+                },
+                "OPTIONS": {
+                    "status_code": opt.get(
+                        "status_code"
+                    ),
+                    "allow": oh.get("allow"),
+                    "access_control_allow_methods":
+                        oh.get(
+                            "access-control-allow-methods"
+                        ),
                 },
             },
         }
