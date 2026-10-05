@@ -30,3 +30,18 @@ logs/
 
 .DS_Store
 Thumbs.db
+# Local credentials / sensitive test data
+cookies.txt
+*.cookies
+*.cookie
+
+# Local backups
+*.ct-backup
+*.ct-fallback-backup
+
+# Local test artifacts / copied target data
+vapt_test.pdf
+originsivf.html
+
+# Accidental local files
+main

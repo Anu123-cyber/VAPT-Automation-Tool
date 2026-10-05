@@ -1387,6 +1387,74 @@ def crawl_site(
         target
     )
 
+    internal_urls.add(
+        target
+    )
+
+    # ========================================================
+    # SEED QUEUE FROM SITEMAP
+    # ========================================================
+    #
+    # The sitemap is checked before crawling so discovered
+    # internal pages are actually crawled instead of being
+    # counted only as internal URLs.
+    #
+    # Respect max_pages to avoid expanding the crawl beyond
+    # the configured limit.
+    # ========================================================
+
+    try:
+
+        sitemap_seed = parse_sitemap(
+            target,
+            create_session()
+        )
+
+        sitemap_seed_urls = (
+            sitemap_seed.get(
+                "urls",
+                []
+            )
+            if isinstance(
+                sitemap_seed,
+                dict
+            )
+            else []
+        )
+
+        for sitemap_url in sitemap_seed_urls:
+
+            sitemap_url = canonicalize_url(
+                sitemap_url
+            )
+
+            if not sitemap_url:
+                continue
+
+            if not same_host(
+                sitemap_url,
+                base_host
+            ):
+                continue
+
+            if sitemap_url in queued:
+                continue
+
+            if len(queue) >= max_pages - 1:
+                break
+
+            queue.append(
+                sitemap_url
+            )
+
+            queued.add(
+                sitemap_url
+            )
+
+    except Exception:
+
+        pass
+
     # ========================================================
     # CRAWL
     # ========================================================
