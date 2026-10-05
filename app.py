@@ -5477,9 +5477,6 @@ pre {{
 </html>"""
 
 
-@app.route(
-    "/scan/<scan_id>/export/<fmt>"
-)
 def make_pdf_report(result):
     memory = io.BytesIO()
 
@@ -5687,6 +5684,9 @@ def make_pdf_report(result):
     return memory
 
 
+@app.route(
+    "/scan/<scan_id>/export/<fmt>"
+)
 def export_scan(
     scan_id,
     fmt,
