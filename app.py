@@ -21,6 +21,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Preformatted
 
 # ============================================================
 # OPTIONAL EXISTING PROJECT MODULES
@@ -5475,6 +5480,213 @@ pre {{
 @app.route(
     "/scan/<scan_id>/export/<fmt>"
 )
+def make_pdf_report(result):
+    memory = io.BytesIO()
+
+    doc = SimpleDocTemplate(
+        memory,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+        title='VAPT Security Assessment Report',
+        author='VAPT Automation Tool',
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'VAPTTitle',
+        parent=styles['Title'],
+        alignment=TA_CENTER,
+        fontSize=20,
+        leading=24,
+        spaceAfter=18,
+    )
+
+    heading_style = ParagraphStyle(
+        'VAPTHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        leading=18,
+        spaceBefore=12,
+        spaceAfter=8,
+    )
+
+    body_style = ParagraphStyle(
+        'VAPTBody',
+        parent=styles['BodyText'],
+        fontSize=9,
+        leading=12,
+        spaceAfter=6,
+    )
+
+    small_style = ParagraphStyle(
+        'VAPTCode',
+        parent=styles['Code'],
+        fontSize=7,
+        leading=9,
+    )
+
+    story = []
+
+    story.append(
+        Paragraph(
+            'VAPT Security Assessment Report',
+            title_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            'VAPT Automation Tool',
+            body_style,
+        )
+    )
+
+    def add_value(label, value):
+        if value is None:
+            value = ''
+        if isinstance(value, (dict, list)):
+            value = json.dumps(
+                value,
+                indent=2,
+                ensure_ascii=False,
+            )
+
+        value = html_lib.escape(str(value))
+
+        story.append(
+            Paragraph(
+                f'<b>{html_lib.escape(str(label))}:</b> {value}',
+                body_style,
+            )
+        )
+
+    def add_section(title, value):
+        story.append(
+            Paragraph(
+                html_lib.escape(str(title)),
+                heading_style,
+            )
+        )
+
+        if isinstance(value, (dict, list)):
+            text = json.dumps(
+                value,
+                indent=2,
+                ensure_ascii=False,
+            )
+        else:
+            text = str(value)
+
+        if not text.strip():
+            text = 'No data available.'
+
+        story.append(
+            Preformatted(
+                text[:50000],
+                small_style,
+            )
+        )
+
+        story.append(Spacer(1, 8))
+
+    if isinstance(result, dict):
+        target = (
+            result.get('target')
+            or result.get('url')
+            or result.get('scan_target')
+            or ''
+        )
+
+        scan_id = (
+            result.get('scan_id')
+            or result.get('id')
+            or ''
+        )
+
+        add_value('Target', target)
+        add_value('Scan ID', scan_id)
+
+        story.append(Spacer(1, 8))
+
+        summary = result.get('summary')
+
+        if summary is not None:
+            add_section('Executive Summary', summary)
+
+        preferred_sections = [
+            ('Findings', 'findings'),
+            ('Open Ports', 'open_ports'),
+            ('Subdomains', 'subdomains'),
+            ('Certificates', 'certificates'),
+            ('Technologies', 'technologies'),
+            ('DNS', 'dns'),
+            ('DNS History & NS Recon', 'dns_history_ns_recon'),
+            ('Certificate Transparency', 'certificate_transparency'),
+            ('Subdomain Enumeration', 'subdomain_enumeration'),
+            ('Web Security', 'web_security'),
+            ('Security Headers', 'headers'),
+            ('HTTP Methods', 'http_methods'),
+            ('CORS', 'cors'),
+            ('Crawler Results', 'crawler'),
+            ('Internal URLs', 'internal_urls'),
+            ('External URLs', 'external_urls'),
+            ('API Endpoints', 'api_endpoints'),
+            ('Forms', 'forms'),
+            ('JavaScript', 'javascript'),
+            ('CSS', 'css'),
+            ('Credential Exposure', 'credentials'),
+            ('Infrastructure', 'infrastructure'),
+            ('Services', 'services'),
+            ('OSINT / Public Intelligence', 'osint'),
+            ('Threat Intelligence', 'threat_intel'),
+            ('Feature Results', 'features'),
+        ]
+
+        used = set()
+
+        for title, key in preferred_sections:
+            if key in result:
+                add_section(title, result.get(key))
+                used.add(key)
+
+        remaining = [
+            key for key in result.keys()
+            if key not in used
+            and key not in {
+                'target',
+                'url',
+                'scan_target',
+                'scan_id',
+                'id',
+                'summary',
+            }
+        ]
+
+        if remaining:
+            story.append(PageBreak())
+            story.append(
+                Paragraph(
+                    'Additional Scan Data',
+                    heading_style,
+                )
+            )
+
+            for key in remaining:
+                add_section(key.replace('_', ' ').title(), result[key])
+
+    else:
+        add_section('Scan Result', result)
+
+    doc.build(story)
+
+    memory.seek(0)
+    return memory
+
+
 def export_scan(
     scan_id,
     fmt,
@@ -5533,6 +5745,18 @@ def export_scan(
             as_attachment=True,
             download_name=(
                 f"vapt_{scan_id}.html"
+            ),
+        )
+
+    if fmt == "pdf":
+        memory = make_pdf_report(result)
+
+        return send_file(
+            memory,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=(
+                f"vapt_{scan_id}_report.pdf"
             ),
         )
 
