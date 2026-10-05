@@ -1091,8 +1091,8 @@ def http_assessment(target, scan_id=None):
         }
 
         # --------------------------------------------------------
-        # HTTP methods: OPTIONS is authoritative when Allow exists.
-        # HEAD is safe to probe. Do not send state-changing methods.
+        # HTTP methods: follow redirects and read methods actually
+        # advertised by the target. Do not invent unsupported methods.
         # --------------------------------------------------------
         opt = _safe_http_probe(
             target,
@@ -1100,30 +1100,76 @@ def http_assessment(target, scan_id=None):
             {"User-Agent": "VAPT-Automation-Tool/1.0", "Origin": origin},
             10,
         )
+
         oh = _header_map(opt.get("headers", {}))
         allowed = _csv_header_values(oh.get("allow"))
-        ac_methods = _csv_header_values(oh.get("access-control-allow-methods"))
+        ac_methods = _csv_header_values(
+            oh.get("access-control-allow-methods")
+        )
         methods = unique_list(allowed + ac_methods)
 
+        # If OPTIONS returned a redirect, explicitly inspect Location.
+        location = oh.get("location")
+        final_url = opt.get("url") or target
+
+        if opt.get("status_code") in (301, 302, 303, 307, 308) and location:
+            redirected_url = urllib.parse.urljoin(target, location)
+
+            final_opt = _safe_http_probe(
+                redirected_url,
+                "OPTIONS",
+                {
+                    "User-Agent": "VAPT-Automation-Tool/1.0",
+                    "Origin": origin,
+                },
+                10,
+            )
+
+            final_headers = _header_map(
+                final_opt.get("headers", {})
+            )
+
+            final_allowed = _csv_header_values(
+                final_headers.get("allow")
+            )
+
+            final_ac_methods = _csv_header_values(
+                final_headers.get("access-control-allow-methods")
+            )
+
+            methods = unique_list(
+                final_allowed + final_ac_methods
+            )
+
+            opt = final_opt
+            oh = final_headers
+            allowed = final_allowed
+            final_url = redirected_url
+
         head = _safe_http_probe(
-            target,
+            final_url,
             "HEAD",
             {"User-Agent": "VAPT-Automation-Tool/1.0"},
             10,
         )
+
         result["http_methods"] = {
             "status_code": opt.get("status_code"),
             "allow": allowed,
             "allowed_methods": methods,
             "methods": methods,
             "tested": ["OPTIONS", "HEAD"],
+            "final_url": final_url,
             "responses": {
                 "OPTIONS": {
                     "status_code": opt.get("status_code"),
                     "allow": oh.get("allow"),
-                    "access_control_allow_methods": oh.get("access-control-allow-methods"),
+                    "access_control_allow_methods":
+                        oh.get("access-control-allow-methods"),
                 },
-                "HEAD": {"status_code": head.get("status_code")},
+                "HEAD": {
+                    "status_code": head.get("status_code")
+                },
             },
         }
 
