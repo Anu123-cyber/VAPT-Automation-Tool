@@ -1,174 +1,264 @@
-🛡️ VAPT Automation Tool
+# 🛡️ VAPT Automation Tool
 
-<p align="center"> <strong>Live Security Assessment & Attack Surface Management Platform</strong> </p>
+### Live Security Assessment & Attack Surface Management Platform
 
-<p align="center"> A Flask-based VAPT platform for authorized web application, infrastructure, service, and attack-surface security assessments. </p>
+A Flask-based **Vulnerability Assessment and Penetration Testing (VAPT)** platform for authorized web application, infrastructure, service, and attack-surface security assessments.
 
-<p align="center"> <a href="https://vapt-automation-tool.onrender.com/"> <img src="https://img.shields.io/badge/🚀%20Live%20Demo-Open%20Application-success?style=for-the-badge" alt="Live Demo"> </a> <a href="https://github.com/Anu123-cyber/VAPT-Automation-Tool"> <img src="https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github" alt="GitHub Repository"> </a> </p>
+<p align="center">
 
-🚀 Live Demo
-Open VAPT Automation Tool →
+<a href="https://vapt-automation-tool.onrender.com/">
+  <img src="https://img.shields.io/badge/Live%20Demo-Open%20Application-success?style=for-the-badge" alt="Live Demo">
+</a>
 
-The application is deployed on Render and provides a browser-based security assessment dashboard.
+<a href="https://github.com/Anu123-cyber/VAPT-Automation-Tool">
+  <img src="https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github" alt="GitHub Repository">
+</a>
 
-Authorization required: Only perform security assessments against systems, applications, APIs, domains, or infrastructure that you own or have explicit permission to test.
+</p>
 
-📸 Dashboard
+---
 
-Add screenshots of the live dashboard here.
+## 🚀 Live Demo
 
+**Open the VAPT Automation Tool:**
+
+👉 **https://vapt-automation-tool.onrender.com/**
+
+The application is deployed on **Render** and provides a browser-based security assessment dashboard with live scan progress, security findings, attack-surface information, and report generation.
+
+> ⚠️ **Authorization Required**
+>
+> Only perform security assessments against systems, applications, APIs, domains, or infrastructure that you own or have explicit permission to test.
+
+---
+
+## 📸 Dashboard
+
+The dashboard provides a centralized interface for monitoring security assessments.
+
+### Dashboard Preview
+
+Add your screenshots to:
+
+```text
 docs/
 └── screenshots/
     ├── dashboard.png
     ├── live-scan.png
     ├── findings.png
     └── reports.png
+```
 
-Example:
+Then display them in this section:
 
 ![VAPT Dashboard](docs/screenshots/dashboard.png)
-Dashboard capabilities
-Live security assessment progress
-Findings and severity summary
-Open-port discovery
-Subdomain enumeration
-Certificate Transparency results
-Technology detection
-Web crawling statistics
-Security headers analysis
-HTTP methods detection
-CORS assessment
-Report generation
-JSON / CSV / HTML / PDF / ZIP exports where enabled
-🔍 Features
+
+### Dashboard Capabilities
+
+* 🔴 Live security assessment progress
+* 🛡️ Findings and severity summary
+* 🔌 Open-port discovery
+* 🌐 Subdomain enumeration
+* 📜 Certificate Transparency results
+* 🔍 Technology detection
+* 🕷️ Web crawling statistics
+* 🔐 Security header analysis
+* 🌍 HTTP methods detection
+* 🔄 CORS assessment
+* 📊 Scan statistics
+* 📄 Report generation
+* 📦 JSON / CSV / HTML / PDF / ZIP exports where enabled
+
+---
+
+# 🔍 Features
 
 The platform is organized into multiple security assessment areas.
 
-🌐 Infrastructure
-Subdomain Enumeration
-Certificate Transparency Mining
-DNS Reconnaissance
-DNS History / NS Recon
-ASN / BGP Intelligence
-Exposed Development / Staging Assets
-Forgotten / EOL Asset Identification
-Cloud Storage Exposure Checks
-🔌 Services
-TCP Port Scanning
-Service Detection
-Technology Fingerprinting
-Nmap-based Network Discovery
-HTTP/HTTPS Service Detection
-Open Port Reporting
-🕷️ Web Security
-Security Header Analysis
-HTTP Methods Detection
-CORS Assessment
-Server / Banner Disclosure
-TLS / Certificate Information
-Common Web File Discovery
-Web Security Findings
-CWE-associated finding information where available
-🕸️ Web Crawler
-Internal URL Discovery
-External URL Discovery
-Sitemap Discovery
-Robots.txt Discovery
-JavaScript File Discovery
-CSS File Discovery
-API Endpoint Discovery
-Parameter Discovery
-Form Discovery
-Page Crawling Statistics
-🔎 OSINT
-Public Intelligence Collection
-Public Repository Indicators
-Public Git / Paste References
-Technology and infrastructure intelligence
-Publicly observable attack-surface information
-🛡️ Threat Intelligence
-Public threat indicators
-Exposure checks
-Credential-exposure surface checks
-Session-token surface detection
-Public repository metadata indicators
+## 🌐 Infrastructure
 
-The platform is designed to collect security-relevant indicators without intentionally harvesting authentication secrets or session-token values.
+| Module                   | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| Subdomain Enumeration    | Discover publicly resolvable subdomains               |
+| Certificate Transparency | Identify certificates and related hostnames           |
+| DNS Reconnaissance       | Collect DNS records and infrastructure information    |
+| DNS History / NS Recon   | Analyze DNS and nameserver information                |
+| ASN / BGP Intelligence   | Infrastructure and network ownership intelligence     |
+| Dev / Staging Discovery  | Identify potentially exposed development environments |
+| Forgotten / EOL Assets   | Identify potentially outdated or forgotten assets     |
+| Cloud Storage Checks     | Identify publicly observable cloud-storage exposure   |
 
-📊 Dashboard
+---
 
-The dashboard provides a centralized view of the current assessment.
+## 🔌 Services
 
-Typical dashboard metrics include:
+| Module                    | Description                                       |
+| ------------------------- | ------------------------------------------------- |
+| TCP Port Scanning         | Identify accessible TCP services                  |
+| Service Detection         | Detect services running on discovered ports       |
+| Technology Fingerprinting | Identify technologies used by exposed services    |
+| Nmap Discovery            | Network/service discovery using Nmap              |
+| HTTP / HTTPS Detection    | Identify web services                             |
+| Open Port Reporting       | Display discovered open services in the dashboard |
 
-Metric	Description
-Findings	Security findings identified during the assessment
-Open Ports	Network services detected by the port scanner
-Subdomains	Discovered subdomains
-Certificates	Certificate Transparency results
-Technologies	Detected technologies and platforms
-Pages	Pages successfully crawled
-Internal URLs	Internal URLs discovered
-External URLs	External URLs discovered
-API Endpoints	API-like endpoints identified
-Parameters	Parameters discovered during crawling
-Forms	Forms detected
-JS Files	JavaScript resources discovered
-CSS Files	CSS resources discovered
+---
 
-Results are based on the data actually collected during the scan. The tool does not intentionally invent findings or counts when a module cannot obtain the relevant information.
+## 🕷️ Web Security
 
-🏗️ Architecture
-                         ┌─────────────────────────┐
-                         │       Web Browser        │
-                         │     VAPT Dashboard       │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │       Flask App          │
-                         │        app.py             │
-                         └────────────┬────────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              │                       │                       │
-              ▼                       ▼                       ▼
-      ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
-      │ Infrastructure│       │    Services   │       │ Web Security  │
-      │               │       │               │       │               │
-      │ DNS           │       │ Nmap          │       │ Headers       │
-      │ Subdomains    │       │ Port Scan     │       │ CORS          │
-      │ CT            │       │ Fingerprint   │       │ HTTP Methods  │
-      └───────────────┘       └───────────────┘       │ TLS           │
-                                                      └───────────────┘
-              │                       │                       │
-              └───────────────────────┼───────────────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │     Web Crawler         │
-                         │                         │
-                         │ URLs / APIs / JS / CSS  │
-                         │ Forms / Parameters      │
-                         └────────────┬────────────┘
-                                      │
-                         ┌────────────┴────────────┐
-                         ▼                         ▼
-                 ┌───────────────┐       ┌────────────────┐
-                 │     OSINT     │       │ Threat Intel   │
-                 └───────────────┘       └────────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │ Scan Results / Findings │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │ Reports / Export        │
-                         │ JSON / CSV / HTML / PDF │
-                         └─────────────────────────┘
-📁 Project Structure
+| Module                     | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| Security Headers           | Analyze HTTP security headers                           |
+| HTTP Methods               | Detect supported HTTP methods                           |
+| CORS Assessment            | Analyze Cross-Origin Resource Sharing configuration     |
+| Server / Banner Disclosure | Identify exposed server information                     |
+| TLS / Certificate Analysis | Collect TLS and certificate information                 |
+| Common File Discovery      | Check common publicly accessible files                  |
+| Web Security Findings      | Generate security findings where evidence supports them |
+| CWE Information            | Associate findings with CWE identifiers where available |
+
+---
+
+## 🕸️ Web Crawler
+
+The crawler collects information from pages that can actually be reached during the assessment.
+
+| Capability             | Description                    |
+| ---------------------- | ------------------------------ |
+| Internal URLs          | Discover internal links        |
+| External URLs          | Identify external links        |
+| Sitemap Discovery      | Process sitemap URLs           |
+| Robots.txt             | Analyze robots.txt information |
+| JavaScript Discovery   | Identify JavaScript resources  |
+| CSS Discovery          | Identify stylesheet resources  |
+| API Endpoint Discovery | Identify API-like endpoints    |
+| Parameter Discovery    | Identify discovered parameters |
+| Form Discovery         | Detect HTML forms              |
+| Page Crawling          | Crawl accessible pages         |
+| Crawl Statistics       | Display real crawl statistics  |
+
+The crawler respects configured page limits and reports the data actually collected.
+
+---
+
+## 🔎 OSINT
+
+Publicly observable intelligence can be collected from sources such as:
+
+* Public infrastructure information
+* Public repository indicators
+* Public Git / Paste references
+* Technology intelligence
+* Attack-surface information
+* Publicly observable asset information
+
+---
+
+## 🛡️ Threat Intelligence
+
+Threat-intelligence related checks include:
+
+* Public threat indicators
+* Exposure-surface checks
+* Credential-exposure surface indicators
+* Session-token exposure indicators
+* Public repository metadata
+* Publicly observable exposure information
+
+> The platform is designed to collect security-relevant indicators without intentionally harvesting authentication passwords or session-token values.
+
+---
+
+# 📊 Dashboard Metrics
+
+The dashboard summarizes information collected during each assessment.
+
+| Metric            | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| **Findings**      | Security findings identified during the assessment |
+| **Open Ports**    | Network services detected by the port scanner      |
+| **Subdomains**    | Discovered subdomains                              |
+| **Certificates**  | Certificate Transparency results                   |
+| **Technologies**  | Detected technologies and platforms                |
+| **Pages**         | Successfully crawled pages                         |
+| **Internal URLs** | Internal URLs discovered                           |
+| **External URLs** | External URLs discovered                           |
+| **API Endpoints** | API-like endpoints identified                      |
+| **Parameters**    | Parameters discovered during crawling              |
+| **Forms**         | Forms detected                                     |
+| **JS Files**      | JavaScript resources discovered                    |
+| **CSS Files**     | CSS resources discovered                           |
+
+### Accuracy
+
+The platform is designed to report **observed scan results rather than fabricated values**.
+
+If a module cannot obtain information from the target, the dashboard should reflect the unavailable/empty result rather than inventing a security finding or count.
+
+---
+
+# 🏗️ Architecture
+
+```text
+                    ┌─────────────────────────┐
+                    │       Web Browser       │
+                    │    VAPT Dashboard       │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │       Flask App         │
+                    │         app.py           │
+                    └────────────┬────────────┘
+                                 │
+             ┌───────────────────┼───────────────────┐
+             │                   │                   │
+             ▼                   ▼                   ▼
+      ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+      │ Infrastructure│  │   Services    │  │ Web Security  │
+      ├───────────────┤  ├───────────────┤  ├───────────────┤
+      │ DNS           │  │ Nmap          │  │ Headers       │
+      │ Subdomains    │  │ Port Scanning │  │ CORS          │
+      │ Certificate   │  │ Fingerprinting│  │ HTTP Methods  │
+      │ Transparency  │  │ Service Scan  │  │ TLS           │
+      └───────────────┘  └───────────────┘  └───────────────┘
+             │                   │                   │
+             └───────────────────┼───────────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │      Web Crawler        │
+                    ├─────────────────────────┤
+                    │ URLs / APIs / JS / CSS  │
+                    │ Forms / Parameters      │
+                    │ Sitemap / Robots        │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    ▼                         ▼
+             ┌──────────────┐         ┌────────────────┐
+             │     OSINT    │         │ Threat Intel   │
+             └──────────────┘         └────────────────┘
+                    │                         │
+                    └────────────┬────────────┘
+                                 ▼
+                    ┌─────────────────────────┐
+                    │     Scan Results        │
+                    │       Findings          │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Reports / Export      │
+                    │ JSON / CSV / HTML / PDF │
+                    │ ZIP where enabled       │
+                    └─────────────────────────┘
+```
+
+---
+
+# 📁 Project Structure
+
+```text
 VAPT-Automation-Tool/
 │
 ├── app.py
@@ -180,6 +270,8 @@ VAPT-Automation-Tool/
 │   └── scanner.py
 │
 ├── modules/
+│   ├── __init__.py
+│   │
 │   ├── infrastructure/
 │   │   ├── dns.py
 │   │   ├── subdomains.py
@@ -189,7 +281,11 @@ VAPT-Automation-Tool/
 │   │   └── services_port_scan.py
 │   │
 │   ├── osint/
+│   │   └── __init__.py
+│   │
 │   ├── threat_intel/
+│   │   └── __init__.py
+│   │
 │   ├── web_crawler.py
 │   └── web_security.py
 │
@@ -201,39 +297,56 @@ VAPT-Automation-Tool/
 ├── Dockerfile
 ├── README.md
 └── .gitignore
-💻 Installation
-Windows
+```
 
-Clone the repository:
+---
 
+# 💻 Installation
+
+## Windows
+
+### 1. Clone the repository
+
+```powershell
 git clone https://github.com/Anu123-cyber/VAPT-Automation-Tool.git
 cd VAPT-Automation-Tool
+```
 
-Create a virtual environment:
+### 2. Create a virtual environment
 
+```powershell
 py -m venv .venv
+```
 
-Activate it:
+### 3. Activate the virtual environment
 
+```powershell
 .venv\Scripts\activate
+```
 
-Install dependencies:
+### 4. Install dependencies
 
+```powershell
 pip install -r requirements.txt
+```
 
-Start the application:
+### 5. Run the application
 
+```powershell
 python app.py
+```
 
 Open:
 
+```text
 http://127.0.0.1:5000/
-Using the project virtual environment directly
+```
 
-On Windows, you can also run:
+---
 
-.venv\Scripts\python.exe app.py
-🐧 Linux
+# 🐧 Linux
+
+```bash
 git clone https://github.com/Anu123-cyber/VAPT-Automation-Tool.git
 cd VAPT-Automation-Tool
 
@@ -243,174 +356,253 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 python app.py
+```
 
 Then open:
 
+```text
 http://127.0.0.1:5000/
-☁️ Deployment
-Render
+```
 
-The application is deployed using Render.
+---
 
-Live application:
+# ☁️ Deployment
 
-https://vapt-automation-tool.onrender.com/
+The application can be deployed using a platform such as **Render**.
 
-For a Render deployment:
+### Render Configuration
 
-Create a Render Web Service.
-Connect the GitHub repository.
-Configure the Python environment.
-Install dependencies from requirements.txt.
-Configure required environment variables.
-Deploy the application.
-Open the generated Render URL.
-Environment Variables
+**Build Command**
 
-Production secrets should be configured through the hosting platform's environment-variable system.
+```bash
+pip install -r requirements.txt
+```
 
-Example:
+**Start Command**
 
-VAPT_SECRET_KEY=<random-production-secret>
+```bash
+python app.py
+```
+
+The application should listen on the port supplied by the hosting platform.
+
+For production deployment, configure authentication and application secrets through the hosting provider's environment-variable settings.
+
+---
+
+# 🔐 Environment Variables
+
+Sensitive values should **not** be committed to GitHub.
+
+Example environment variables:
+
+```text
+VAPT_SECRET_KEY=<strong-random-secret>
+
 VAPT_ADMIN_USERNAME=<admin-username>
+
 VAPT_ADMIN_PASSWORD_HASH=<password-hash>
+
 HIBP_API_KEY=<optional-api-key>
+```
 
-Never commit production secrets to GitHub.
+Keep real API keys, passwords, tokens, cookies, private keys, and other credentials outside the repository.
 
-🔐 Security & Authorization
+---
 
-This project is intended for:
+# 🔒 Security & Authorization
 
-Authorized penetration testing
-Vulnerability assessment
-Attack-surface discovery
-Security research
-Security education
-Internal security testing
-Bug bounty testing where explicitly permitted
-Responsible Use
+This project is intended for **authorized security testing only**.
 
-Only scan systems where you have explicit authorization.
+Before scanning a target, ensure that you have explicit permission from the system owner.
 
-Do not use this tool to:
+### Recommended use cases
 
-Scan third-party systems without permission
-Attempt unauthorized authentication
-Access private data
-Steal credentials or session tokens
-Disrupt services
-Evade security controls
-Conduct denial-of-service attacks
-Perform unauthorized exploitation
+* Authorized penetration testing
+* Internal security assessments
+* Web application security testing
+* Infrastructure assessments
+* Attack-surface discovery
+* Security research in controlled environments
+* Security labs and test environments
 
-The user operating this software is responsible for ensuring that all testing complies with applicable laws, contracts, and the target organization's authorization and scope.
+### Do not use the platform to:
 
-🧪 Accuracy & False Positives
+* Scan systems without authorization
+* Attempt unauthorized access
+* Collect credentials from systems you do not own
+* Disrupt production services
+* Perform denial-of-service testing without explicit authorization
+* Bypass security controls without permission
 
-The platform is designed to report information based on actual scan results.
+---
 
-Where possible:
+# 📄 Reporting
 
-Findings are supported by collected evidence.
-Network ports are reported from actual scanning results.
-Crawled pages are counted from successfully processed pages.
-Security-header findings are based on observed HTTP responses.
-HTTP methods are based on observed server behavior.
-Technology information is based on detected indicators.
-Unavailable modules should not be represented as successful findings.
+The platform supports report/export functionality where enabled.
 
-Security testing results should still be manually validated before being used in a professional penetration-testing report.
+Available formats may include:
 
-📄 Reporting
-
-The platform supports security assessment reporting and exports where enabled by the deployed version.
-
-Potential report formats include:
-
+```text
 JSON
 CSV
 HTML
 PDF
 ZIP
+```
 
 Reports can contain information such as:
 
-Target information
-Scan metadata
+* Target information
+* Scan status
+* Discovered services
+* Open ports
+* Subdomains
+* Certificates
+* Technologies
+* Crawler statistics
+* Security findings
+* Evidence collected during the assessment
+
+---
+
+# 🧪 Accuracy & False Positives
+
+The project is designed with an emphasis on **evidence-based security results**.
+
+The platform aims to:
+
+* Use actual scan output
+* Avoid fabricated statistics
+* Avoid inventing vulnerabilities
+* Preserve raw module results where possible
+* Associate findings with evidence
+* Display empty results when information cannot be obtained
+* Distinguish unavailable modules from completed modules
+
+Security findings should still be manually validated before being treated as confirmed vulnerabilities in a professional penetration-testing report.
+
+---
+
+# 🛠️ Technology Stack
+
+| Technology                   | Purpose                            |
+| ---------------------------- | ---------------------------------- |
+| **Python**                   | Application backend                |
+| **Flask**                    | Web application framework          |
+| **Nmap**                     | Network and service discovery      |
+| **HTML / CSS / JavaScript**  | Dashboard interface                |
+| **DNS tools**                | DNS reconnaissance                 |
+| **Certificate Transparency** | Certificate and hostname discovery |
+| **Web Crawler**              | Web attack-surface discovery       |
+| **OSINT modules**            | Public intelligence collection     |
+| **Threat Intelligence**      | Exposure and indicator analysis    |
+| **Render**                   | Cloud deployment                   |
+
+---
+
+# 📌 Current Scope
+
+The current platform focuses on:
+
+```text
+Infrastructure Discovery
+        ↓
+Service Discovery
+        ↓
+Technology Detection
+        ↓
+Web Security Analysis
+        ↓
+Web Crawling
+        ↓
+OSINT
+        ↓
+Threat Intelligence
+        ↓
 Findings
-Severity
-CWE information
-Evidence
-Open ports
-Technologies
-Subdomains
-Certificates
-Web-crawler results
+        ↓
+Reports
+```
 
-Do not publicly share reports containing client or sensitive assessment data.
+The available functionality depends on the target, network accessibility, installed dependencies, external data sources, and the modules enabled in the deployment.
 
-🛠️ Technology Stack
-Component	Technology
-Backend	Python
-Web Framework	Flask
-Frontend	HTML / CSS / JavaScript
-Network Scanner	Nmap
-Database	SQLite where configured
-Certificate Intelligence	Certificate Transparency
-Deployment	Render
-Version Control	Git / GitHub
-Reporting	JSON / CSV / HTML / PDF / ZIP
-📌 Current Scope
+---
 
-The project is actively developed and may contain modules that are experimental, environment-dependent, or require additional configuration.
+# 🤝 Contributing
 
-Some security checks depend on:
+Contributions, bug reports, feature suggestions, and improvements are welcome.
 
-Target accessibility
-DNS configuration
-Network connectivity
-Nmap availability
-Target HTTP behavior
-External intelligence sources
-API configuration
-Hosting environment restrictions
+### Contribution workflow
 
-A module returning no results does not necessarily mean the target is secure.
+```bash
+git clone https://github.com/Anu123-cyber/VAPT-Automation-Tool.git
 
-🤝 Contributing
+cd VAPT-Automation-Tool
 
-Contributions, bug reports, feature suggestions, and security improvements are welcome.
+git checkout -b feature/my-feature
 
-Before submitting changes:
+# Make your changes
 
-Test the affected module.
-Avoid committing secrets or credentials.
-Do not include client assessment data.
-Keep changes focused.
-Document new functionality where appropriate.
-🐛 Issues
+git add .
 
-If you discover a bug or have a feature request, open an issue in the GitHub repository:
+git commit -m "Add my feature"
 
-Report an issue →
+git push origin feature/my-feature
+```
 
-For security-sensitive issues, avoid publicly posting credentials, tokens, private information, or client assessment data.
+Then open a Pull Request on GitHub.
 
-📜 License
+---
 
-Add your chosen open-source license here.
+# 🐛 Issues
 
-If no license has been selected yet, the repository should be considered all rights reserved by default, even though the source code is publicly viewable.
+If you discover a bug or have a feature request, please open an issue:
 
-👤 Author
+👉 https://github.com/Anu123-cyber/VAPT-Automation-Tool/issues
 
-Anusha
+When reporting a problem, include:
 
-Cybersecurity / VAPT
+* Operating system
+* Python version
+* Relevant module
+* Error message
+* Steps to reproduce
+* Expected behavior
+* Actual behavior
+
+Do not include passwords, API keys, tokens, cookies, or other sensitive information.
+
+---
+
+# 👩‍💻 Author
+
+**Anu123-cyber**
 
 GitHub:
 
-https://github.com/Anu123-cyber
+👉 https://github.com/Anu123-cyber
 
-<p align="center"> <strong>VAPT Automation Tool</strong><br> Built for authorized security assessment and attack-surface visibility. </p>
+---
+
+# ⚠️ Disclaimer
+
+This tool is provided for **authorized security assessment, penetration testing, research, and educational purposes**.
+
+The author is not responsible for misuse of the software or unauthorized security testing.
+
+Always obtain appropriate authorization before scanning or assessing a target.
+
+---
+
+<p align="center">
+
+### 🛡️ VAPT Automation Tool
+
+**Live Security Assessment & Attack Surface Management**
+
+<a href="https://vapt-automation-tool.onrender.com/">
+  <img src="https://img.shields.io/badge/🚀_Open-Live_Dashboard-success?style=for-the-badge" alt="Open Live Dashboard">
+</a>
+
+</p>
